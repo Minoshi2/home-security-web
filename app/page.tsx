@@ -1,27 +1,25 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, User, Users, Scissors } from "lucide-react"
-import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar"
+import { AlertCircle, Scissors, User, Users } from "lucide-react"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 
 // Add the import for the StatusIndicator component and cn utility at the top of the file
 import { cn } from "@/lib/utils"
 
 // Update to the provided API URL
-const BACKEND_BASE_URL = "https://home-security-api-365895512870.us-central1.run.app"
-// const BACKEND_BASE_URL = "http://127.0.0.1:5000"
-
 // Status Indicator component
 import { StatusIndicator } from "@/components/status-indicator"
+import { BACKEND_BASE_URL } from "@/constants";
+import useDetectionWebSocket from "@/hooks/useDetectionWebSocket";
 
 export default function VideoApp() {
     const [currentDateTime, setCurrentDateTime] = useState("")
     const [remainingTime, setRemainingTime] = useState("")
     const [videoSource, setVideoSource] = useState("prerecorded") // "webcam" or "prerecorded"
     const [isDetecting, setIsDetecting] = useState(false)
-    const [detectedObjects, setDetectedObjects] = useState([])
     const [showHistory, setShowHistory] = useState(false)
     const [textPaneMessage, setTextPaneMessage] = useState("")
     const [isLoading, setIsLoading] = useState({
@@ -30,23 +28,14 @@ export default function VideoApp() {
         startDetection: false,
         stopDetection: false,
     })
-    const [videoId, setVideoId] = useState("10") // Default video ID
+    const [videoId, setVideoId] = useState("7") // Default video ID
     const imageRef = useRef(null)
     const [apiConnected, setApiConnected] = useState(false)
     const [videoError, setVideoError] = useState(false)
     const [isNlpEnabled, setIsNlpEnabled] = useState(false)
     const [imageDimensions, setImageDimensions] = useState({ width: 640, height: 360 })
 
-    // Detection states
-    const [detections, setDetections] = useState({
-        person: false,
-        gun: false,
-        knife: false,
-        multiplePersons: false,
-    })
-
-    // Add a new state variable for NLP message
-    const [nlpMessage, setNlpMessage] = useState("")
+    const { detections, nlpMessage, detectedObjects } = useDetectionWebSocket(apiConnected, isNlpEnabled)
 
     // Debug logging for API connection and video status
     useEffect(() => {
@@ -204,146 +193,6 @@ export default function VideoApp() {
         },
     }
 
-    // Fetch text pane message
-    useEffect(() => {
-        const fetchTextMessage = async () => {
-            if (!apiConnected) {
-                setTextPaneMessage("")
-                return
-            }
-
-            try {
-                // Add a timeout to the fetch request to prevent hanging
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
-
-                const response = await fetch(`${BACKEND_BASE_URL}/get_text`, {
-                    method: "GET",
-                    mode: "cors",
-                    headers: {
-                        Accept: "application/json",
-                    },
-                    signal: controller.signal,
-                }).finally(() => clearTimeout(timeoutId))
-
-                if (!response.ok) {
-                    throw new Error(`Server responded with status: ${response.status}`)
-                }
-
-                const data = await response.json()
-                setTextPaneMessage(data.text_message || "")
-            } catch (error) {
-                console.error(`Failed to fetch text message: ${error.message}`)
-
-                // Handle specific error types
-                if (error.name === "AbortError") {
-                    console.log("Fetch request timed out")
-                }
-
-                // If API connection is lost
-                if (apiConnected) {
-                    console.log("API connection lost")
-                    setApiConnected(false)
-                }
-            }
-        }
-
-        fetchTextMessage()
-        const interval = setInterval(fetchTextMessage, 1000)
-
-        return () => clearInterval(interval)
-    }, [apiConnected])
-
-    // Update the fetchDetectionData function to capture the text_message when NLP is enabled
-    const fetchDetectionData = async () => {
-        if (!apiConnected) {
-            // Clear detections if API is not connected
-            setDetections({
-                person: false,
-                gun: false,
-                knife: false,
-                multiplePersons: false,
-            })
-            setNlpMessage("")
-            return
-        }
-
-        try {
-            // Add a timeout to the fetch request
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
-
-            const response = await fetch(`${BACKEND_BASE_URL}/get_person_detection${isNlpEnabled ? "-nlp" : ""}`, {
-                method: "GET",
-                mode: "cors",
-                headers: {
-                    Accept: "application/json",
-                },
-                signal: controller.signal,
-            }).finally(() => clearTimeout(timeoutId))
-
-            if (!response.ok) {
-                throw new Error(`Server responded with status: ${response.status}`)
-            }
-
-            const data = await response.json()
-            setDetections({
-                person: data.detected_person || false,
-                gun: data.detected_gun || false,
-                knife: data.detected_knife || false,
-                multiplePersons: data.detected_multiple_persons || false,
-            })
-
-            // Store NLP message if available
-            if (isNlpEnabled && data.text_message) {
-                setNlpMessage(data.text_message)
-            } else {
-                setNlpMessage("")
-            }
-
-            // Add to detection history
-            if (data.detected_person || data.detected_gun || data.detected_knife || data.detected_multiple_persons) {
-                const newDetection = {
-                    id: Date.now(),
-                    timestamp: new Date().toLocaleTimeString(),
-                    type: data.detected_gun
-                        ? "Gun"
-                        : data.detected_knife
-                            ? "Knife"
-                            : data.detected_multiple_persons
-                                ? "Multiple Persons"
-                                : data.detected_person
-                                    ? "Person"
-                                    : "Unknown",
-                    confidence: "0.85", // Placeholder since the API doesn't provide this
-                }
-                setDetectedObjects((prev) => [newDetection, ...prev].slice(0, 5))
-            }
-        } catch (error) {
-            console.error(`Failed to fetch detection data: ${error.message}`)
-
-            // Handle specific error types
-            if (error.name === "AbortError") {
-                console.log("Fetch request timed out")
-            }
-
-            // If API connection is lost
-            if (apiConnected) {
-                console.log("API connection lost")
-                // setApiConnected(false)
-            }
-        }
-    }
-
-    // Initial fetch
-    useEffect(() => {
-        fetchDetectionData()
-
-        // Set up polling interval
-        const interval = setInterval(fetchDetectionData, 1000)
-
-        return () => clearInterval(interval)
-    }, [apiConnected, isNlpEnabled])
 
     // Handle image load to get actual dimensions
     const handleImageLoad = (e) => {
@@ -374,7 +223,7 @@ export default function VideoApp() {
 
     // Update the getAlertMessage function to use NLP message when available
     const getAlertMessage = () => {
-        // If NLP is enabled and we have an NLP message, use it
+        // If NLP is enabled, and we have an NLP message, use it
         if (isNlpEnabled && nlpMessage) {
             return <>{nlpMessage}</>
         }
@@ -463,11 +312,9 @@ export default function VideoApp() {
     const alertMessage = getAlertMessage()
 
     // Get video source URL
-    const getVideoSourceUrl = () => {
-        const url = `${BACKEND_BASE_URL}/video_feed/${videoId}`
-        console.log("Video source URL:", url)
-        return url
-    }
+    const getVideoSourceUrl = useCallback(() => {
+        return `${BACKEND_BASE_URL}/video_feed/${videoId}`;
+    }, [videoId]);
 
     return (
         <SidebarProvider>
@@ -482,6 +329,8 @@ export default function VideoApp() {
                 apiConnected={apiConnected}
                 isNlpEnabled={isNlpEnabled}
                 onToggleNlp={actionHandlers.toggleNlp}
+                videoId={videoId}
+                setVideoId={setVideoId}
             />
             <SidebarInset>
                 <div className="container p-4 max-w-7xl flex flex-col min-h-screen">
@@ -722,7 +571,7 @@ export default function VideoApp() {
                                     <ul className="space-y-1">
                                         {detectedObjects.map((obj) => (
                                             <li key={obj.id} className="text-sm flex justify-between">
-                                                <span>{obj.type} detected</span>
+                                                <span>{obj.type} detected {(obj.message && obj.message !== '') ? `(${obj.message})` : ''}</span>
                                                 <span className="text-muted-foreground">{obj.timestamp}</span>
                                             </li>
                                         ))}
