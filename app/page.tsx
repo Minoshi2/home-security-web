@@ -12,16 +12,14 @@ import { cn } from "@/lib/utils"
 // Update to the provided API URL
 // Status Indicator component
 import { StatusIndicator } from "@/components/status-indicator"
-import { BACKEND_BASE_URL } from "@/constants";
-import useDetectionWebSocket from "@/hooks/useDetectionWebSocket";
+import { BACKEND_BASE_URL } from "@/constants"
+import useDetectionWebSocket from "@/hooks/useDetectionWebSocket"
 
 export default function VideoApp() {
     const [currentDateTime, setCurrentDateTime] = useState("")
     const [remainingTime, setRemainingTime] = useState("")
     const [videoSource, setVideoSource] = useState("prerecorded") // "webcam" or "prerecorded"
     const [isDetecting, setIsDetecting] = useState(false)
-    const [showHistory, setShowHistory] = useState(false)
-    const [textPaneMessage, setTextPaneMessage] = useState("")
     const [isLoading, setIsLoading] = useState({
         webcam: false,
         video: false,
@@ -35,7 +33,7 @@ export default function VideoApp() {
     const [isNlpEnabled, setIsNlpEnabled] = useState(false)
     const [imageDimensions, setImageDimensions] = useState({ width: 640, height: 360 })
 
-    const { detections, nlpMessage, detectedObjects } = useDetectionWebSocket(apiConnected, isNlpEnabled)
+    const { detections, nlpMessage } = useDetectionWebSocket(apiConnected, isNlpEnabled)
 
     // Debug logging for API connection and video status
     useEffect(() => {
@@ -113,8 +111,16 @@ export default function VideoApp() {
         checkApiConnection()
     }, [])
 
+    // Add a useEffect to fetch history data when the component mounts
+    // Add this after the API connection check useEffect
+
     // API call helper function with error handling
-    const callAPI = async (endpoint: string, loadingKey: keyof typeof isLoading, successMessage: string) => {
+    const callAPI = async (
+        endpoint: string,
+        loadingKey: keyof typeof isLoading,
+        successMessage: string,
+        method = "POST",
+    ) => {
         setIsLoading((prev) => ({ ...prev, [loadingKey]: true }))
 
         try {
@@ -125,7 +131,7 @@ export default function VideoApp() {
             }
 
             const response = await fetch(`${BACKEND_BASE_URL}${endpoint}`, {
-                method: "POST",
+                method: method,
                 mode: "cors",
                 headers: {
                     "Content-Type": "application/json",
@@ -140,15 +146,15 @@ export default function VideoApp() {
             const data = await response.json()
             console.log(`Success: ${successMessage}`)
             return data
-        } catch (error) {
-            console.error(`API call failed: ${error.message}`)
+        } catch (error: any) {
+            console.error(`API call failed: ${error?.message}`)
             throw error
         } finally {
             setIsLoading((prev) => ({ ...prev, [loadingKey]: false }))
         }
     }
 
-    // Action buttons functionality
+    // Update the toggleHistory function to always fetch history when showing it
     const actionHandlers = {
         switchToWebcam: async () => {
             try {
@@ -186,16 +192,14 @@ export default function VideoApp() {
                 // Error already handled in callAPI
             }
         },
-        toggleHistory: () => setShowHistory(!showHistory),
         toggleNlp: () => {
             setIsNlpEnabled(!isNlpEnabled)
             console.log(isNlpEnabled ? "NLP Disabled" : "NLP Enabled")
         },
     }
 
-
     // Handle image load to get actual dimensions
-    const handleImageLoad = (e) => {
+    const handleImageLoad = (e: any) => {
         if (e.target) {
             const { naturalWidth, naturalHeight } = e.target
             console.log("Image loaded with dimensions:", naturalWidth, "x", naturalHeight)
@@ -313,8 +317,8 @@ export default function VideoApp() {
 
     // Get video source URL
     const getVideoSourceUrl = useCallback(() => {
-        return `${BACKEND_BASE_URL}/video_feed/${videoId}`;
-    }, [videoId]);
+        return `${BACKEND_BASE_URL}/video_feed/${videoId}`
+    }, [videoId])
 
     return (
         <SidebarProvider>
@@ -325,7 +329,6 @@ export default function VideoApp() {
                 onSwitchToVideo={actionHandlers.switchToVideo}
                 onStartDetection={actionHandlers.startDetection}
                 onStopDetection={actionHandlers.stopDetection}
-                onToggleHistory={actionHandlers.toggleHistory}
                 apiConnected={apiConnected}
                 isNlpEnabled={isNlpEnabled}
                 onToggleNlp={actionHandlers.toggleNlp}
@@ -421,7 +424,9 @@ export default function VideoApp() {
 
                                         {/* Detection Status Indicator - Right */}
                                         <div className="bg-black/70 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2 whitespace-nowrap mb-1">
-                                            <span className={`h-2 w-2 rounded-full ${isDetecting ? "bg-green-500 animate-pulse" : "bg-red-500"}`}></span>
+                      <span
+                          className={`h-2 w-2 rounded-full ${isDetecting ? "bg-green-500 animate-pulse" : "bg-red-500"}`}
+                      ></span>
                                             {isDetecting ? "Detection Active" : "Detection Inactive"}
                                         </div>
                                     </div>
@@ -431,23 +436,23 @@ export default function VideoApp() {
                                         <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2">
                                             {detections.person && (
                                                 <span className="bg-amber-500/90 text-white px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                                                    <User className="h-4 w-4" /> Person Detected
-                                                </span>
+                          <User className="h-4 w-4" /> Person Detected
+                        </span>
                                             )}
                                             {detections.multiplePersons && (
                                                 <span className="bg-amber-600/90 text-white px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                                                    <Users className="h-4 w-4" /> Multiple Persons
-                                                </span>
+                          <Users className="h-4 w-4" /> Multiple Persons
+                        </span>
                                             )}
                                             {detections.knife && (
                                                 <span className="bg-red-500/90 text-white px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                                                    <Scissors className="h-4 w-4" /> Knife Detected
-                                                </span>
+                          <Scissors className="h-4 w-4" /> Knife Detected
+                        </span>
                                             )}
                                             {detections.gun && (
                                                 <span className="bg-red-600/90 text-white px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                                                    <AlertCircle className="h-4 w-4" /> Gun Detected
-                                                </span>
+                          <AlertCircle className="h-4 w-4" /> Gun Detected
+                        </span>
                                             )}
                                         </div>
                                     )}
@@ -458,7 +463,7 @@ export default function VideoApp() {
                             <div className="">
                                 <div className="">
                                     {/* Detection Status Indicators */}
-                                    <div className="flex flex-wrap w-[450px]">
+                                    <div className="flex flex-wrap w-[350px] justify-around">
                                         <StatusIndicator
                                             active={detections.person}
                                             icon={<User className="h-4 w-4" />}
@@ -484,14 +489,6 @@ export default function VideoApp() {
                                             color="red"
                                         />
                                     </div>
-
-                                    {/* Text Pane Message */}
-                                    {textPaneMessage && (
-                                        <div className="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-md">
-                                            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">SYSTEM MESSAGE</h4>
-                                            <p className="text-sm text-gray-700 dark:text-gray-300">{textPaneMessage}</p>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -541,10 +538,15 @@ export default function VideoApp() {
                                     {isAlertActive ? <AlertCircle className="h-5 w-5" /> : <User className="h-5 w-5" />}
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-4">
+                            <CardContent
+                                className={cn(
+                                    "p-0",
+                                    isAlertActive ? "bg-red-50 dark:bg-red-900/20" : "bg-amber-50 dark:bg-amber-900/20",
+                                )}
+                            >
                                 <div
                                     className={cn(
-                                        "rounded-md p-3 text-sm h-32 overflow-y-auto",
+                                        "rounded-md p-4 text-sm h-52 overflow-y-auto",
                                         isAlertActive
                                             ? "bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 dark:border-red-700"
                                             : "bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 dark:border-amber-700",
@@ -562,25 +564,6 @@ export default function VideoApp() {
                                 </div>
                             </CardContent>
                         </Card>
-
-                        {/* Detection History */}
-                        {showHistory && (
-                            <div className="mt-4 mb-6 p-4 border rounded-lg bg-muted/50">
-                                <h3 className="font-medium mb-2">Detection History</h3>
-                                {detectedObjects.length > 0 ? (
-                                    <ul className="space-y-1">
-                                        {detectedObjects.map((obj) => (
-                                            <li key={obj.id} className="text-sm flex justify-between">
-                                                <span>{obj.type} detected {(obj.message && obj.message !== '') ? `(${obj.message})` : ''}</span>
-                                                <span className="text-muted-foreground">{obj.timestamp}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">No detection history available</p>
-                                )}
-                            </div>
-                        )}
                     </div>
                 </div>
             </SidebarInset>

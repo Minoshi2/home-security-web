@@ -19,7 +19,6 @@ const useDetectionWebSocket = (apiConnected: boolean, isNlpEnabled: boolean) => 
         multiplePersons: false,
     })
     const [nlpMessage, setNlpMessage] = useState("")
-    const [detectedObjects, setDetectedObjects] = useState<{ id: number; timestamp: string; type: string; message: string }[]>([])
 
     useEffect(() => {
         if (!apiConnected) {
@@ -36,7 +35,7 @@ const useDetectionWebSocket = (apiConnected: boolean, isNlpEnabled: boolean) => 
         // Establish WebSocket connection
         const newSocket = io(BACKEND_BASE_URL_WS)
 
-        newSocket.emit("get-person-ws", {nlp: isNlpEnabled})
+        newSocket.emit("get-person-ws", { nlp: isNlpEnabled })
 
         newSocket.on("person_detection_response", (data: DetectionData) => {
             setDetections({
@@ -50,24 +49,6 @@ const useDetectionWebSocket = (apiConnected: boolean, isNlpEnabled: boolean) => 
                 setNlpMessage(data.text_message)
             } else {
                 setNlpMessage("")
-            }
-
-            if (data.detected_person || data.detected_gun || data.detected_knife || data.detected_multiple_persons) {
-                const newDetection = {
-                    id: Date.now(),
-                    timestamp: new Date().toLocaleTimeString(),
-                    type: data.detected_gun
-                        ? "Gun"
-                        : data.detected_knife
-                            ? "Knife"
-                            : data.detected_multiple_persons
-                                ? "Multiple Persons"
-                                : data.detected_person
-                                    ? "Person"
-                                    : "Unknown",
-                    message: data.text_message
-                }
-                setDetectedObjects((prev) => [newDetection, ...prev].slice(0, 5))
             }
         })
 
@@ -83,7 +64,7 @@ const useDetectionWebSocket = (apiConnected: boolean, isNlpEnabled: boolean) => 
         }
     }, [apiConnected, isNlpEnabled])
 
-    return { detections, nlpMessage, detectedObjects }
+    return { detections, nlpMessage }
 }
 
 export default useDetectionWebSocket

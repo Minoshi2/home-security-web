@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import Link from "next/link"
 
 interface AppSidebarProps {
     isDetecting: boolean
@@ -19,7 +20,6 @@ interface AppSidebarProps {
     onSwitchToVideo: () => Promise<void>
     onStartDetection: () => Promise<void>
     onStopDetection: () => Promise<void>
-    onToggleHistory: () => void
     apiConnected: boolean
     isNlpEnabled: boolean
     onToggleNlp: () => void
@@ -34,7 +34,6 @@ export function AppSidebar({
     onSwitchToVideo,
     onStartDetection,
     onStopDetection,
-    onToggleHistory,
     apiConnected,
     isNlpEnabled,
     onToggleNlp,
@@ -118,10 +117,12 @@ export function AppSidebar({
                     </SidebarMenuItem>
 
                     <SidebarMenuItem>
-                        <SidebarMenuButton onClick={onToggleHistory} className="w-full justify-start">
-                            <History className="mr-2 h-4 w-4" />
-                            <span>View History</span>
-                        </SidebarMenuButton>
+                        <Link href="/history" className="w-full">
+                            <SidebarMenuButton className="w-full justify-start">
+                                <History className="mr-2 h-4 w-4" />
+                                <span>View History</span>
+                            </SidebarMenuButton>
+                        </Link>
                     </SidebarMenuItem>
                 </SidebarMenu>
 
