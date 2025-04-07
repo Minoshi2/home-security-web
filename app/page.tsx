@@ -229,7 +229,10 @@ export default function VideoApp() {
     const getAlertMessage = () => {
         // If NLP is enabled, and we have an NLP message, use it
         if (isNlpEnabled && nlpMessage) {
-            return <>{nlpMessage}</>
+            return <><div
+            className="prose"
+            dangerouslySetInnerHTML={{ __html: nlpMessage }}
+          /></>
         }
 
         // Otherwise use the hardcoded messages
@@ -267,7 +270,7 @@ export default function VideoApp() {
         } else if (detections.knife) {
             return (
                 <>
-                    <strong>Intruder Armed with Knife Detected!</strong>
+                    <strong>Critical Alert:Intruder Armed with Knife Detected!</strong>
                     <br />
                     1. Stay in a Safe Zone – Avoid direct paths and secure yourself behind locked doors.
                     <br />
